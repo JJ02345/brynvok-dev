@@ -31,7 +31,10 @@ env:
   OS_NAME: osx
   VSCODE_QUALITY: ${{ (github.ref == 'refs/heads/insider' || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'insider')) && 'insider' || 'stable' }}
 
-permissions: {}
+# Upstream runs with no permissions because a public repo clones without auth.
+# This fork is private, so checkout needs an explicitly readable token.
+permissions:
+  contents: read
 
 jobs:
   build:

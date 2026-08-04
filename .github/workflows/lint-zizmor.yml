@@ -13,12 +13,18 @@ on:
     paths-ignore:
       - "**/*.md"
 
-permissions: {}
+# Upstream runs with no permissions because a public repo clones without auth.
+# This fork is private, so checkout needs an explicitly readable token.
+permissions:
+  contents: read
 
 jobs:
   zizmor:
     runs-on: ubuntu-latest
     permissions:
+      # Job-level permissions replace the top-level block entirely, so contents
+      # has to be repeated here for checkout to work.
+      contents: read
       security-events: write
     steps:
       - name: Checkout repo
