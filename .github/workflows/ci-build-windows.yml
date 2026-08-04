@@ -36,6 +36,12 @@ env:
 permissions:
   contents: read
 
+# A Windows runner bills at 2x, and two builds of the same branch cost double
+# without adding information, so a newer push supersedes one still in flight.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   compile:
     runs-on: windows-2022
