@@ -1,0 +1,4 @@
+# The build scripts are executed by bash on every platform, including Windows
+# via Git Bash. A CRLF checkout breaks the shebang line and any here-document,
+# so these must stay LF regardless of the local core.autocrlf setting.
+*.sh text eol=lf
