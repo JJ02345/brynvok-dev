@@ -9,17 +9,9 @@ on:
       checkout_pr:
         type: string
         description: Checkout PR
-  push:
-    branches:
-      - master
-      - insider
-    paths-ignore:
-      - "**/*.md"
-  pull_request:
-    branches:
-      - "**"
-    paths-ignore:
-      - "**/*.md"
+  # Manual only. Private repositories bill Linux at 1x and macOS at 10x, so
+  # only the Windows workflow, the platform this fork is developed on, runs
+  # automatically on push.
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true

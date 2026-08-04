@@ -153,13 +153,17 @@ jobs:
           npm_config_target_arch: ${{ matrix.vscode_arch }}
         run: ./build/windows/package.sh
 
+      # Upstream only packages assets on a manual run because it publishes
+      # through the separate publish-* workflows. This fork has no release
+      # pipeline, so a push to master is the only way an installer is produced
+      # and it would otherwise compile without leaving anything downloadable.
       - name: Prepare assets
         run: ./prepare_assets.sh
-        if: github.event.inputs.generate_assets == 'true'
+        if: github.event.inputs.generate_assets == 'true' || github.event_name == 'push'
 
       - name: Prepare checksums
         run: ./prepare_checksums.sh
-        if: github.event.inputs.generate_assets == 'true'
+        if: github.event.inputs.generate_assets == 'true' || github.event_name == 'push'
 
       - name: Upload assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -167,4 +171,4 @@ jobs:
           name: bin-${{ matrix.vscode_arch }}
           path: assets/
           retention-days: 3
-        if: github.event.inputs.generate_assets == 'true'
+        if: github.event.inputs.generate_assets == 'true' || github.event_name == 'push'

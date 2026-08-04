@@ -9,17 +9,8 @@ on:
       checkout_pr:
         type: string
         description: Checkout PR
-  push:
-    branches:
-      - master
-      - insider
-    paths-ignore:
-      - "**/*.md"
-  pull_request:
-    branches:
-      - "**"
-    paths-ignore:
-      - "**/*.md"
+  # Manual only. Private repositories bill macOS runners at 10x, which would
+  # consume most of the monthly quota on a single push.
 
 env:
   APP_NAME: 'Brynvok Dev'
