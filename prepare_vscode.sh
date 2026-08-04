@@ -3,6 +3,11 @@
 
 set -e
 
+# Sourced here rather than further down so the product.json section can use
+# APP_NAME, BINARY_NAME, GH_REPO_PATH and friends. Must not be sourced twice:
+# GLOBAL_DIRNAME appends "-insiders" on every pass.
+. ./utils.sh
+
 if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
   cp -rp src/insider/* vscode/
 else
@@ -34,30 +39,62 @@ setpath_json() {
   set -x
 }
 
-setpath "product" "checksumFailMoreInfoUrl" "https://go.microsoft.com/fwlink/?LinkId=828886"
-setpath "product" "documentationUrl" "https://go.microsoft.com/fwlink/?LinkID=533484#vscode"
-setpath_json "product" "extensionsGallery" '{"serviceUrl": "https://open-vsx.org/vscode/gallery", "itemUrl": "https://open-vsx.org/vscode/item", "latestUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest", "controlUrl": "https://raw.githubusercontent.com/EclipseFdn/publish-extensions/refs/heads/master/extension-control/extensions.json"}'
+# The ../product.json overlay is merged with jq's `*` operator, which merges
+# objects recursively and therefore cannot delete anything. Keys that must be
+# absent have to be removed here instead.
+delpath() {
+  local jsonTmp
+  { set +x; } 2>/dev/null
+  jsonTmp=$( jq "del(.${2})" "${1}.json" )
+  echo "${jsonTmp}" > "${1}.json"
+  set -x
+}
 
-setpath "product" "introductoryVideosUrl" "https://go.microsoft.com/fwlink/?linkid=832146"
-setpath "product" "keyboardShortcutsUrlLinux" "https://go.microsoft.com/fwlink/?linkid=832144"
-setpath "product" "keyboardShortcutsUrlMac" "https://go.microsoft.com/fwlink/?linkid=832143"
-setpath "product" "keyboardShortcutsUrlWin" "https://go.microsoft.com/fwlink/?linkid=832145"
-setpath "product" "licenseUrl" "https://github.com/VSCodium/vscodium/blob/master/LICENSE"
+# Project-owned links. Every Help menu entry below is guarded by its product.json
+# key in upstream code, so the deletions further down simply hide those entries.
+setpath "product" "documentationUrl" "https://github.com/${GH_REPO_PATH}#readme"
+setpath "product" "licenseUrl" "https://github.com/${GH_REPO_PATH}/blob/master/LICENSE"
+setpath "product" "releaseNotesUrl" "https://github.com/${GH_REPO_PATH}/releases"
+setpath "product" "reportIssueUrl" "https://github.com/${GH_REPO_PATH}/issues/new"
+setpath "product" "requestFeatureUrl" "https://github.com/${GH_REPO_PATH}/issues/new"
+
+setpath_json "product" "extensionsGallery" '{"serviceUrl": "https://open-vsx.org/vscode/gallery", "itemUrl": "https://open-vsx.org/vscode/item", "latestUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest", "controlUrl": "https://raw.githubusercontent.com/EclipseFdn/publish-extensions/refs/heads/master/extension-control/extensions.json"}'
 setpath_json "product" "linkProtectionTrustedDomains" '["https://open-vsx.org"]'
-setpath "product" "releaseNotesUrl" "https://go.microsoft.com/fwlink/?LinkID=533483#vscode"
-setpath "product" "reportIssueUrl" "https://github.com/VSCodium/vscodium/issues/new"
-setpath "product" "requestFeatureUrl" "https://go.microsoft.com/fwlink/?LinkID=533482"
-setpath "product" "tipsAndTricksUrl" "https://go.microsoft.com/fwlink/?linkid=852118"
-setpath "product" "twitterUrl" "https://go.microsoft.com/fwlink/?LinkID=533687"
+
+# Telemetry is compiled out by patches/00-telemetry-disable.patch; this makes the
+# product itself declare it, which also short-circuits the telemetry service.
+setpath_json "product" "enableTelemetry" 'false'
+
+# Microsoft and GitHub endpoints that upstream ships in product.json.
+# aka.ms / go.microsoft.com redirectors, Copilot backends, the speech-to-text
+# socket and the webview CDN all resolve to first-party Microsoft services.
+delpath "product" "checksumFailMoreInfoUrl"        # go.microsoft.com
+delpath "product" "introductoryVideosUrl"          # go.microsoft.com
+delpath "product" "keyboardShortcutsUrlLinux"      # go.microsoft.com
+delpath "product" "keyboardShortcutsUrlMac"        # go.microsoft.com
+delpath "product" "keyboardShortcutsUrlWin"        # go.microsoft.com
+delpath "product" "tipsAndTricksUrl"               # go.microsoft.com
+delpath "product" "twitterUrl"                     # go.microsoft.com
+delpath "product" "privacyStatementUrl"            # go.microsoft.com
+delpath "product" "defaultChatAgent"               # api.github.com + aka.ms (Copilot)
+delpath "product" "trustedExtensionAuthAccess"     # grants Copilot silent GitHub auth
+delpath "product" "builtInExtensionsEnabledWithAutoUpdates"
+delpath "product" "voiceWsUrl"                     # falcon-caas.mai.microsoft.com
+delpath "product" "agentsTelemetryAppName"
+delpath "product" "webviewContentExternalBaseUrlTemplate"  # *.vscode-cdn.net
+delpath "product" "aiConfig"
+delpath "product" "msftInternalDomains"
+delpath "product" "sendASmile"
+delpath "product" "experimentsUrl"
+delpath "product" "surveys"
+delpath "product" "npsSurveyUrl"
+delpath "product" "cesSurveyUrl"
 
 if [[ "${DISABLE_UPDATE}" != "yes" ]]; then
-  setpath "product" "updateUrl" "https://raw.githubusercontent.com/VSCodium/versions/refs/heads/master"
-
-  if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-    setpath "product" "downloadUrl" "https://github.com/VSCodium/vscodium-insiders/releases"
-  else
-    setpath "product" "downloadUrl" "https://github.com/VSCodium/vscodium/releases"
-  fi
+  # Must point at infrastructure you control. Left on the VSCodium defaults the
+  # updater would offer VSCodium builds to Brynvok Dev users.
+  setpath "product" "updateUrl" "${UPDATE_BASE_URL:-https://raw.githubusercontent.com/JJ02345/versions/refs/heads/master}"
+  setpath "product" "downloadUrl" "https://github.com/${GH_REPO_PATH}/releases"
 
   # if [[ "${OS_NAME}" == "windows" ]]; then
   #   setpath_json "product" "win32VersionedUpdate" "true"
@@ -93,32 +130,35 @@ if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
   setpath "product" "win32ContextMenu.x64.clsid" "90AAD229-85FD-43A3-B82D-8598A88829CF"
   setpath "product" "win32ContextMenu.arm64.clsid" "7544C31C-BDBF-4DDF-B15E-F73A46D6723D"
 else
-  setpath "product" "nameShort" "VSCodium"
-  setpath "product" "nameLong" "VSCodium"
-  setpath "product" "applicationName" "codium"
-  setpath "product" "linuxIconName" "vscodium"
+  setpath "product" "nameShort" "${APP_NAME}"
+  setpath "product" "nameLong" "${APP_NAME}"
+  setpath "product" "applicationName" "${BINARY_NAME}"
+  setpath "product" "dataFolderName" ".${APP_NAME_LC}"
+  setpath "product" "linuxIconName" "${APP_NAME_LC}"
   setpath "product" "quality" "stable"
-  setpath "product" "urlProtocol" "vscodium"
-  setpath "product" "serverApplicationName" "codium-server"
-  setpath "product" "serverDataFolderName" ".vscodium-server"
-  setpath "product" "darwinBundleIdentifier" "com.vscodium"
-  setpath "product" "win32AppUserModelId" "VSCodium.VSCodium"
-  setpath "product" "win32DirName" "VSCodium"
-  setpath "product" "win32MutexName" "vscodium"
-  setpath "product" "win32NameVersion" "VSCodium"
-  setpath "product" "win32RegValueName" "VSCodium"
-  setpath "product" "win32ShellNameShort" "VSCodium"
-  setpath "product" "win32AppId" "{{763CBF88-25C6-4B10-952F-326AE657F16B}"
-  setpath "product" "win32x64AppId" "{{88DA3577-054F-4CA1-8122-7D820494CFFB}"
-  setpath "product" "win32arm64AppId" "{{67DEE444-3D04-4258-B92A-BC1F0FF2CAE4}"
-  setpath "product" "win32UserAppId" "{{0FD05EB4-651E-4E78-A062-515204B47A3A}"
-  setpath "product" "win32x64UserAppId" "{{2E1F05D1-C245-4562-81EE-28188DB6FD17}"
-  setpath "product" "win32arm64UserAppId" "{{57FD70A5-1B8D-4875-9F40-C5553F094828}"
-  setpath "product" "tunnelApplicationName" "codium-tunnel"
-  setpath "product" "win32TunnelServiceMutex" "vscodium-tunnelservice"
-  setpath "product" "win32TunnelMutex" "vscodium-tunnel"
-  setpath "product" "win32ContextMenu.x64.clsid" "D910D5E6-B277-4F4A-BDC5-759A34EEE25D"
-  setpath "product" "win32ContextMenu.arm64.clsid" "4852FC55-4A84-4EA1-9C86-D53BE3DF83C0"
+  setpath "product" "urlProtocol" "${APP_NAME_LC}"
+  setpath "product" "serverApplicationName" "${BINARY_NAME}-server"
+  setpath "product" "serverDataFolderName" ".${APP_NAME_LC}-server"
+  setpath "product" "darwinBundleIdentifier" "dev.brynvok.BrynvokDev"
+  setpath "product" "win32AppUserModelId" "Brynvok.BrynvokDev"
+  setpath "product" "win32DirName" "${APP_NAME}"
+  setpath "product" "win32MutexName" "brynvokdev"
+  setpath "product" "win32NameVersion" "${APP_NAME}"
+  setpath "product" "win32RegValueName" "BrynvokDev"
+  setpath "product" "win32ShellNameShort" "${APP_NAME}"
+  # Generated for Brynvok Dev. These must never be reused from VSCodium or the
+  # Windows installer would upgrade/uninstall an existing VSCodium install.
+  setpath "product" "win32AppId" "{{EFD7B782-DF66-41B5-B821-DB3684B59A7A}"
+  setpath "product" "win32x64AppId" "{{73D2F31C-370C-42A6-92CA-8FD0F76A0D2F}"
+  setpath "product" "win32arm64AppId" "{{83D07F08-521F-48A1-8545-68F37065F302}"
+  setpath "product" "win32UserAppId" "{{B86B3B29-F95D-4964-AEBE-E1E772336CE5}"
+  setpath "product" "win32x64UserAppId" "{{41A94BCD-25A5-4B36-9A61-724A6A0A3436}"
+  setpath "product" "win32arm64UserAppId" "{{FA1E2363-442A-4A8E-843F-6C62FE1DA516}"
+  setpath "product" "tunnelApplicationName" "${TUNNEL_APP_NAME}"
+  setpath "product" "win32TunnelServiceMutex" "brynvokdev-tunnelservice"
+  setpath "product" "win32TunnelMutex" "brynvokdev-tunnel"
+  setpath "product" "win32ContextMenu.x64.clsid" "5BFD79BC-E8DF-4120-9DFE-C6FAE6839DC3"
+  setpath "product" "win32ContextMenu.arm64.clsid" "173EE85C-ACFD-4D32-85CF-AAE37361E18F"
 fi
 
 setpath_json "product" "tunnelApplicationConfig" '{}'
@@ -128,9 +168,6 @@ echo "${jsonTmp}" > product.json && unset jsonTmp
 
 cat product.json
 # }}}
-
-# include common functions
-. ../utils.sh
 
 # {{{ apply patches
 
@@ -233,16 +270,16 @@ cp package.json{,.bak}
 
 setpath "package" "version" "${RELEASE_VERSION%-insider}"
 
-replace 's|Microsoft Corporation|VSCodium|' package.json
+replace "s|Microsoft Corporation|${ORG_NAME}|" package.json
 
 cp resources/server/manifest.json{,.bak}
 
 if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-  setpath "resources/server/manifest" "name" "VSCodium - Insiders"
-  setpath "resources/server/manifest" "short_name" "VSCodium - Insiders"
+  setpath "resources/server/manifest" "name" "${APP_NAME} - Insiders"
+  setpath "resources/server/manifest" "short_name" "${APP_NAME} - Insiders"
 else
-  setpath "resources/server/manifest" "name" "VSCodium"
-  setpath "resources/server/manifest" "short_name" "VSCodium"
+  setpath "resources/server/manifest" "name" "${APP_NAME}"
+  setpath "resources/server/manifest" "short_name" "${APP_NAME}"
 fi
 
 # announcements
@@ -250,46 +287,45 @@ replace "s|\\[\\/\\* BUILTIN_ANNOUNCEMENTS \\*\\/\\]|$( tr -d '\n' < ../announce
 
 ../undo_telemetry.sh
 
-replace 's|Microsoft Corporation|VSCodium|' build/lib/electron.ts
-replace 's|([0-9]) Microsoft|\1 VSCodium|' build/lib/electron.ts
+replace "s|Microsoft Corporation|${ORG_NAME}|" build/lib/electron.ts
+replace "s|([0-9]) Microsoft|\\1 ${ORG_NAME}|" build/lib/electron.ts
+
+PRODUCT_HOMEPAGE="https://github.com/${GH_REPO_PATH}"
 
 if [[ "${OS_NAME}" == "linux" ]]; then
   # microsoft adds their apt repo to sources
   # unless the app name is code-oss
-  # as we are renaming the application to vscodium
+  # as we are renaming the application
   # we need to edit a line in the post install template
   if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-    sed -i "s/code-oss/codium-insiders/" resources/linux/debian/postinst.template
+    sed -i "s/code-oss/${BINARY_NAME}-insiders/" resources/linux/debian/postinst.template
   else
-    sed -i "s/code-oss/codium/" resources/linux/debian/postinst.template
+    sed -i "s/code-oss/${BINARY_NAME}/" resources/linux/debian/postinst.template
   fi
 
   # fix the packages metadata
   # code.appdata.xml
-  sed -i 's|Visual Studio Code|VSCodium|g' resources/linux/code.appdata.xml
-  sed -i 's|https://code.visualstudio.com/docs/setup/linux|https://github.com/VSCodium/vscodium#download-install|' resources/linux/code.appdata.xml
-  sed -i 's|https://code.visualstudio.com/home/home-screenshot-linux-lg.png|https://vscodium.com/img/vscodium.png|' resources/linux/code.appdata.xml
-  sed -i 's|https://code.visualstudio.com|https://vscodium.com|' resources/linux/code.appdata.xml
+  sed -i "s|Visual Studio Code|${APP_NAME}|g" resources/linux/code.appdata.xml
+  sed -i "s|https://code.visualstudio.com/docs/setup/linux|${PRODUCT_HOMEPAGE}#readme|" resources/linux/code.appdata.xml
+  sed -i "s|https://code.visualstudio.com/home/home-screenshot-linux-lg.png|${PRODUCT_HOMEPAGE}|" resources/linux/code.appdata.xml
+  sed -i "s|https://code.visualstudio.com|${PRODUCT_HOMEPAGE}|" resources/linux/code.appdata.xml
 
   # control.template
-  sed -i 's|Microsoft Corporation <vscode-linux@microsoft.com>|VSCodium Team https://github.com/VSCodium/vscodium/graphs/contributors|'  resources/linux/debian/control.template
-  sed -i 's|Visual Studio Code|VSCodium|g' resources/linux/debian/control.template
-  sed -i 's|https://code.visualstudio.com/docs/setup/linux|https://github.com/VSCodium/vscodium#download-install|' resources/linux/debian/control.template
-  sed -i 's|https://code.visualstudio.com|https://vscodium.com|' resources/linux/debian/control.template
+  sed -i "s|Microsoft Corporation <vscode-linux@microsoft.com>|${ORG_NAME} ${PRODUCT_HOMEPAGE}|"  resources/linux/debian/control.template
+  sed -i "s|Visual Studio Code|${APP_NAME}|g" resources/linux/debian/control.template
+  sed -i "s|https://code.visualstudio.com/docs/setup/linux|${PRODUCT_HOMEPAGE}#readme|" resources/linux/debian/control.template
+  sed -i "s|https://code.visualstudio.com|${PRODUCT_HOMEPAGE}|" resources/linux/debian/control.template
 
   # code.spec.template
-  sed -i 's|Microsoft Corporation|VSCodium Team|' resources/linux/rpm/code.spec.template
-  sed -i 's|Visual Studio Code Team <vscode-linux@microsoft.com>|VSCodium Team https://github.com/VSCodium/vscodium/graphs/contributors|' resources/linux/rpm/code.spec.template
-  sed -i 's|Visual Studio Code|VSCodium|' resources/linux/rpm/code.spec.template
-  sed -i 's|https://code.visualstudio.com/docs/setup/linux|https://github.com/VSCodium/vscodium#download-install|' resources/linux/rpm/code.spec.template
-  sed -i 's|https://code.visualstudio.com|https://vscodium.com|' resources/linux/rpm/code.spec.template
-
-  # snapcraft.yaml
-  sed -i 's|Visual Studio Code|VSCodium|' resources/linux/rpm/code.spec.template
+  sed -i "s|Microsoft Corporation|${ORG_NAME}|" resources/linux/rpm/code.spec.template
+  sed -i "s|Visual Studio Code Team <vscode-linux@microsoft.com>|${ORG_NAME} ${PRODUCT_HOMEPAGE}|" resources/linux/rpm/code.spec.template
+  sed -i "s|Visual Studio Code|${APP_NAME}|" resources/linux/rpm/code.spec.template
+  sed -i "s|https://code.visualstudio.com/docs/setup/linux|${PRODUCT_HOMEPAGE}#readme|" resources/linux/rpm/code.spec.template
+  sed -i "s|https://code.visualstudio.com|${PRODUCT_HOMEPAGE}|" resources/linux/rpm/code.spec.template
 elif [[ "${OS_NAME}" == "windows" ]]; then
   # code.iss
-  sed -i 's|https://code.visualstudio.com|https://vscodium.com|' build/win32/code.iss
-  sed -i 's|Microsoft Corporation|VSCodium|' build/win32/code.iss
+  sed -i "s|https://code.visualstudio.com|${PRODUCT_HOMEPAGE}|" build/win32/code.iss
+  sed -i "s|Microsoft Corporation|${ORG_NAME}|" build/win32/code.iss
 fi
 
 cd ..

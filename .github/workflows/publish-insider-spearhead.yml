@@ -14,9 +14,10 @@ on:
         description: Disable dispatch
 
 env:
-  APP_NAME: VSCodium
+  APP_NAME: 'Brynvok Dev'
   ASSETS_REPOSITORY: ${{ github.repository }}-insiders
-  BINARY_NAME: codium-insiders
+  BINARY_NAME: brynvok-insiders
+  DISABLE_UPDATE: yes
   GH_REPO_PATH: ${{ github.repository }}
   ORG_NAME: ${{ github.repository_owner }}
   OS_NAME: osx
