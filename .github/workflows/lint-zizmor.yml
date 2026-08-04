@@ -39,3 +39,6 @@ jobs:
           # Annotations surface the same findings in the run log instead.
           advanced-security: false
           annotations: true
+          # Without the SARIF upload the exit code decides the job, so purely
+          # informational notices would fail every run. Low and above still do.
+          min-severity: low
