@@ -152,32 +152,35 @@ if [[ "${OS_NAME}" == "osx" ]]; then
   VERSION_PATH="${VSCODE_QUALITY}/darwin/${VSCODE_ARCH}"
   updateLatestVersion
 elif [[ "${OS_NAME}" == "windows" ]]; then
+  # Must match the naming used by build/windows/prepare_assets.sh.
+  APP_NAME_NS="${APP_NAME// /}"
+
   # system installer
-  ASSET_NAME="${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+  ASSET_NAME="${APP_NAME_NS}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
   VERSION_PATH="${VSCODE_QUALITY}/win32/${VSCODE_ARCH}/system"
   updateLatestVersion
 
   # user installer
-  ASSET_NAME="${APP_NAME}UserSetup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+  ASSET_NAME="${APP_NAME_NS}UserSetup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
   VERSION_PATH="${VSCODE_QUALITY}/win32/${VSCODE_ARCH}/user"
   updateLatestVersion
 
   # windows archive
-  ASSET_NAME="${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip"
+  ASSET_NAME="${APP_NAME_NS}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip"
   VERSION_PATH="${VSCODE_QUALITY}/win32/${VSCODE_ARCH}/archive"
   updateLatestVersion
 
   if [[ "${VSCODE_ARCH}" == "ia32" || "${VSCODE_ARCH}" == "x64" ]]; then
     # msi
     if [[ "${SHOULD_BUILD_MSI}" != "no" ]]; then
-      ASSET_NAME="${APP_NAME}-${VSCODE_ARCH}-${RELEASE_VERSION}.msi"
+      ASSET_NAME="${APP_NAME_NS}-${VSCODE_ARCH}-${RELEASE_VERSION}.msi"
       VERSION_PATH="${VSCODE_QUALITY}/win32/${VSCODE_ARCH}/msi"
       updateLatestVersion
     fi
 
     # updates-disabled msi
     if [[ "${SHOULD_BUILD_MSI_NOUP}" != "no" ]]; then
-      ASSET_NAME="${APP_NAME}-${VSCODE_ARCH}-updates-disabled-${RELEASE_VERSION}.msi"
+      ASSET_NAME="${APP_NAME_NS}-${VSCODE_ARCH}-updates-disabled-${RELEASE_VERSION}.msi"
       VERSION_PATH="${VSCODE_QUALITY}/win32/${VSCODE_ARCH}/msi-updates-disabled"
       updateLatestVersion
     fi

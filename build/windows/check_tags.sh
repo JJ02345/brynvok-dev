@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
+# Must match the naming used by build/windows/prepare_assets.sh, otherwise an
+# already published asset is not recognised and gets rebuilt every run.
+APP_NAME_NS="${APP_NAME// /}"
+
 # windows-arm64
 if [[ "${VSCODE_ARCH}" == "arm64" ]]; then
-  if [[ -z $( contains "${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe" ) ]]; then
+  if [[ -z $( contains "${APP_NAME_NS}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe" ) ]]; then
     echo "Building on Windows arm64 because we have no system setup"
     export SHOULD_BUILD="yes"
   else
@@ -16,7 +20,7 @@ if [[ "${VSCODE_ARCH}" == "arm64" ]]; then
     export SHOULD_BUILD_EXE_USR="no"
   fi
 
-  if [[ -z $( contains "${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip" ) ]]; then
+  if [[ -z $( contains "${APP_NAME_NS}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip" ) ]]; then
     echo "Building on Windows arm64 because we have no zip"
     export SHOULD_BUILD="yes"
   else
@@ -39,7 +43,7 @@ if [[ "${VSCODE_ARCH}" == "arm64" ]]; then
 
 # windows-x64
 else
-  if [[ -z $( contains "${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe" ) ]]; then
+  if [[ -z $( contains "${APP_NAME_NS}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe" ) ]]; then
     echo "Building on Windows x64 because we have no system setup"
     export SHOULD_BUILD="yes"
   else
@@ -53,7 +57,7 @@ else
     export SHOULD_BUILD_EXE_USR="no"
   fi
 
-  if [[ -z $( contains "${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip" ) ]]; then
+  if [[ -z $( contains "${APP_NAME_NS}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip" ) ]]; then
     echo "Building on Windows x64 because we have no zip"
     export SHOULD_BUILD="yes"
   else
@@ -62,7 +66,7 @@ else
 
   if [[ "${DISABLE_MSI}" == "yes" ]]; then
       export SHOULD_BUILD_MSI="no"
-  elif [[ -z $( contains "${APP_NAME}-${VSCODE_ARCH}-${RELEASE_VERSION}.msi" ) ]]; then
+  elif [[ -z $( contains "${APP_NAME_NS}-${VSCODE_ARCH}-${RELEASE_VERSION}.msi" ) ]]; then
     echo "Building on Windows x64 because we have no msi"
     export SHOULD_BUILD="yes"
   else
@@ -71,7 +75,7 @@ else
 
   if [[ "${DISABLE_MSI}" == "yes" ]]; then
       export SHOULD_BUILD_MSI_NOUP="no"
-  elif [[ -z $( contains "${APP_NAME}-${VSCODE_ARCH}-updates-disabled-${RELEASE_VERSION}.msi" ) ]]; then
+  elif [[ -z $( contains "${APP_NAME_NS}-${VSCODE_ARCH}-updates-disabled-${RELEASE_VERSION}.msi" ) ]]; then
     echo "Building on Windows x64 because we have no updates-disabled msi"
     export SHOULD_BUILD="yes"
   else

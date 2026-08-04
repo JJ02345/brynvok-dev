@@ -118,9 +118,21 @@ jobs:
         shell: bash
     env:
       BUILD_SOURCEVERSION: ${{ needs.compile.outputs.BUILD_SOURCEVERSION }}
-      MS_COMMIT: ${{ needs.check.outputs.MS_COMMIT }}
-      MS_TAG: ${{ needs.check.outputs.MS_TAG }}
-      RELEASE_VERSION: ${{ needs.check.outputs.RELEASE_VERSION }}
+      # Upstream reads these from a "check" job that only exists in the publish
+      # workflows, so here they resolved to empty and the MSI compiler aborted
+      # on a blank Product/@Version. The compile job exports the same values.
+      MS_COMMIT: ${{ needs.compile.outputs.MS_COMMIT }}
+      MS_TAG: ${{ needs.compile.outputs.MS_TAG }}
+      RELEASE_VERSION: ${{ needs.compile.outputs.RELEASE_VERSION }}
+      # Normally set by check_tags.sh, which likewise only runs in the publish
+      # workflows. Unset means "build it", and build/windows/msi still carries
+      # VSCodium's product name and upgrade code, so an MSI produced here would
+      # register as an upgrade of an installed VSCodium and replace it.
+      SHOULD_BUILD_MSI: no
+      SHOULD_BUILD_MSI_NOUP: no
+      # The standalone CLI archive is not shipped and its absence would only
+      # fail prepare_assets.sh looking for a binary that was never built.
+      SHOULD_BUILD_CLI: no
       SHOULD_BUILD_REH: no
       SHOULD_BUILD_REH_WEB: no
       VSCODE_ARCH: ${{ matrix.vscode_arch }}
