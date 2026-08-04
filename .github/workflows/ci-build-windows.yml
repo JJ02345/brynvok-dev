@@ -108,9 +108,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Kept as a matrix so the vscode_arch references below stay valid.
+        # arm64 is dropped because no Windows-on-ARM machine is targeted and a
+        # private repo bills the extra packaging job at 2x.
         vscode_arch:
           - x64
-          - arm64
     defaults:
       run:
         shell: bash
