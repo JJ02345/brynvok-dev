@@ -76,11 +76,18 @@ delpath "product" "keyboardShortcutsUrlWin"        # go.microsoft.com
 delpath "product" "tipsAndTricksUrl"               # go.microsoft.com
 delpath "product" "twitterUrl"                     # go.microsoft.com
 delpath "product" "privacyStatementUrl"            # go.microsoft.com
-delpath "product" "defaultChatAgent"               # api.github.com + aka.ms (Copilot)
+# defaultChatAgent must stay. The workbench and the extension management
+# service read it in eighteen places without a guard, so removing it throws
+# during startup and leaves nothing but an empty window. It is inert data:
+# the Copilot extensions it names are not on Open VSX, and no address in it is
+# contacted unless the user actively starts the Copilot sign-in flow.
 delpath "product" "trustedExtensionAuthAccess"     # grants Copilot silent GitHub auth
-delpath "product" "builtInExtensionsEnabledWithAutoUpdates"
 delpath "product" "voiceWsUrl"                     # falcon-caas.mai.microsoft.com
 delpath "product" "agentsTelemetryAppName"
+# Removing this does not remove the CDN: the reader falls back to the same
+# vscode-cdn.net template compiled into the workbench. It only matters for
+# served webviews, which the desktop build does not use, as those are loaded
+# locally over vscode-file://.
 delpath "product" "webviewContentExternalBaseUrlTemplate"  # *.vscode-cdn.net
 delpath "product" "aiConfig"
 delpath "product" "msftInternalDomains"
@@ -89,6 +96,12 @@ delpath "product" "experimentsUrl"
 delpath "product" "surveys"
 delpath "product" "npsSurveyUrl"
 delpath "product" "cesSurveyUrl"
+
+# Names the built-in extensions allowed to auto-update from the marketplace,
+# which upstream uses for Copilot. It has to be emptied rather than deleted:
+# extension management iterates it without a guard, so removing the key makes
+# every install, list and uninstall fail with "is not iterable".
+setpath_json "product" "builtInExtensionsEnabledWithAutoUpdates" '[]'
 
 if [[ "${DISABLE_UPDATE}" != "yes" ]]; then
   # Must point at infrastructure you control. Left on the VSCodium defaults the
