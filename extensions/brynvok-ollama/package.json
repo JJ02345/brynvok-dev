@@ -1,0 +1,204 @@
+{
+	"name": "brynvok-ollama",
+	"displayName": "Brynvok AI",
+	"description": "Local AI assistance backed by an Ollama server. No prompt or source code leaves the machine.",
+	"version": "0.1.0",
+	"publisher": "brynvok",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.125.0"
+	},
+	"categories": [
+		"Programming Languages",
+		"Machine Learning"
+	],
+	"main": "./dist/extension.js",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		},
+		"virtualWorkspaces": true
+	},
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "brynvok-ai",
+					"title": "Brynvok AI",
+					"icon": "media/icon.svg"
+				}
+			]
+		},
+		"views": {
+			"brynvok-ai": [
+				{
+					"id": "brynvok.chat",
+					"name": "Chat",
+					"type": "webview"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "brynvok.ai.focusChat",
+				"title": "Focus Chat",
+				"category": "Brynvok AI"
+			},
+			{
+				"command": "brynvok.ai.explainSelection",
+				"title": "Explain Selection",
+				"category": "Brynvok AI"
+			},
+			{
+				"command": "brynvok.ai.selectChatModel",
+				"title": "Select Chat Model",
+				"category": "Brynvok AI"
+			},
+			{
+				"command": "brynvok.ai.selectCompletionModel",
+				"title": "Select Completion Model",
+				"category": "Brynvok AI"
+			},
+			{
+				"command": "brynvok.ai.toggleCompletions",
+				"title": "Toggle Inline Completions",
+				"category": "Brynvok AI"
+			},
+			{
+				"command": "brynvok.ai.checkConnection",
+				"title": "Check Ollama Connection",
+				"category": "Brynvok AI"
+			},
+			{
+				"command": "brynvok.ai.clearChat",
+				"title": "Clear Chat",
+				"category": "Brynvok AI",
+				"icon": "$(clear-all)"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "brynvok.ai.clearChat",
+					"when": "view == brynvok.chat",
+					"group": "navigation"
+				}
+			],
+			"editor/context": [
+				{
+					"command": "brynvok.ai.explainSelection",
+					"when": "editorHasSelection",
+					"group": "brynvok@1"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "brynvok.ai.focusChat",
+				"key": "ctrl+alt+b",
+				"mac": "cmd+alt+b"
+			}
+		],
+		"configuration": {
+			"title": "Brynvok AI",
+			"properties": {
+				"brynvok.ai.endpoint": {
+					"type": "string",
+					"default": "http://127.0.0.1:11434",
+					"markdownDescription": "Base URL of the Ollama server. Must be a loopback address unless `#brynvok.ai.allowNonLocalEndpoint#` is enabled."
+				},
+				"brynvok.ai.allowNonLocalEndpoint": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Permit an endpoint outside this machine. Leaving this off guarantees that prompts and source code never reach the network."
+				},
+				"brynvok.ai.requestTimeout": {
+					"type": "number",
+					"default": 120000,
+					"minimum": 1000,
+					"description": "Milliseconds to wait for a response before aborting the request."
+				},
+				"brynvok.ai.chat.model": {
+					"type": "string",
+					"default": "qwen2.5-coder:1.5b",
+					"markdownDescription": "Model used for chat. Must be pulled on the Ollama server beforehand, so the default is a small instruct model rather than a better but multi-gigabyte one. Larger models give noticeably better answers; switch at any time with **Brynvok AI: Select Chat Model**."
+				},
+				"brynvok.ai.chat.temperature": {
+					"type": "number",
+					"default": 0.2,
+					"minimum": 0,
+					"maximum": 2,
+					"description": "Sampling temperature for chat replies. Lower values produce more deterministic answers."
+				},
+				"brynvok.ai.chat.systemPrompt": {
+					"type": "string",
+					"default": "You are a concise programming assistant. Prefer short, correct answers and complete code over explanation.",
+					"editPresentation": "multilineText",
+					"description": "System prompt prepended to every chat session."
+				},
+				"brynvok.ai.chat.historyLimit": {
+					"type": "number",
+					"default": 20,
+					"minimum": 2,
+					"description": "Number of past messages sent as context. Older messages are dropped to bound the prompt size."
+				},
+				"brynvok.ai.completion.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Offer inline completions while typing."
+				},
+				"brynvok.ai.completion.model": {
+					"type": "string",
+					"default": "qwen2.5-coder:1.5b-base",
+					"markdownDescription": "Model used for inline completions. This must be a base model that supports fill-in-the-middle; instruct-tuned models return prose instead of code."
+				},
+				"brynvok.ai.completion.debounce": {
+					"type": "number",
+					"default": 300,
+					"minimum": 0,
+					"description": "Milliseconds of typing pause before a completion is requested."
+				},
+				"brynvok.ai.completion.maxTokens": {
+					"type": "number",
+					"default": 128,
+					"minimum": 1,
+					"description": "Upper bound on tokens generated per inline completion."
+				},
+				"brynvok.ai.completion.contextChars": {
+					"type": "number",
+					"default": 2000,
+					"minimum": 100,
+					"description": "Characters taken from before and after the cursor as fill-in-the-middle context."
+				},
+				"brynvok.ai.completion.disabledLanguages": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [
+						"plaintext",
+						"markdown",
+						"scminput"
+					],
+					"description": "Language identifiers that never receive inline completions."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"build": "node esbuild.mjs --production",
+		"compile": "node esbuild.mjs",
+		"package": "npm run build && npx @vscode/vsce package --no-dependencies",
+		"typecheck": "tsc --noEmit",
+		"watch": "node esbuild.mjs --watch"
+	},
+	"devDependencies": {
+		"@types/node": "22.19.18",
+		"@types/vscode": "1.125.0",
+		"esbuild": "0.28.1",
+		"typescript": "5.9.3"
+	}
+}
