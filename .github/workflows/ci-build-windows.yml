@@ -173,6 +173,13 @@ jobs:
           npm_config_target_arch: ${{ matrix.vscode_arch }}
         run: ./build/windows/package.sh
 
+      # Has to sit between packaging and asset preparation: it writes into the
+      # packaged application, which the installers and the zip are built from
+      # in the next step.
+      - name: Bundle own extensions
+        run: ./bundle_extensions.sh
+        if: github.event.inputs.generate_assets == 'true' || github.event_name == 'push'
+
       # Upstream only packages assets on a manual run because it publishes
       # through the separate publish-* workflows. This fork has no release
       # pipeline, so a push to master is the only way an installer is produced
