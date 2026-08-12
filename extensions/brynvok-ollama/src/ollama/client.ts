@@ -2,7 +2,9 @@ import type { BrynvokConfig } from '../config';
 import { parseEndpoint } from './endpoint';
 import { OllamaError } from './errors';
 import type {
+	ChatMessage,
 	ChatRequest,
+	ChatResponse,
 	ChatStreamChunk,
 	GenerateRequest,
 	GenerateResponse,
@@ -22,6 +24,25 @@ export class OllamaClient {
 	async listModels(signal?: AbortSignal): Promise<OllamaModel[]> {
 		const body = await this.requestJson<TagsResponse>('/api/tags', undefined, signal);
 		return body.models ?? [];
+	}
+
+	/**
+	 * Single-turn chat. Prefer this when tools are attached so the full
+	 * assistant message, including tool calls, is available at once.
+	 */
+	async chat(request: ChatRequest, signal?: AbortSignal): Promise<ChatMessage> {
+		const response = await this.send('/api/chat', { ...request, stream: false }, signal);
+		const body = (await response.json()) as ChatResponse;
+
+		if (body.error) {
+			throw new OllamaError('http', body.error);
+		}
+
+		if (!body.message) {
+			throw new OllamaError('malformed', 'The server returned no assistant message.');
+		}
+
+		return body.message;
 	}
 
 	/**

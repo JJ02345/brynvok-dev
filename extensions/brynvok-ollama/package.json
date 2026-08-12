@@ -2,7 +2,7 @@
 	"name": "brynvok-ollama",
 	"displayName": "Brynvok AI",
 	"description": "Local AI assistance backed by an Ollama server. No prompt or source code leaves the machine.",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"publisher": "brynvok",
 	"license": "MIT",
 	"engines": {
@@ -24,7 +24,7 @@
 	},
 	"contributes": {
 		"viewsContainers": {
-			"activitybar": [
+			"secondarySidebar": [
 				{
 					"id": "brynvok-ai",
 					"title": "Brynvok AI",
@@ -123,8 +123,8 @@
 				},
 				"brynvok.ai.chat.model": {
 					"type": "string",
-					"default": "qwen2.5-coder:1.5b",
-					"markdownDescription": "Model used for chat. Must be pulled on the Ollama server beforehand, so the default is a small instruct model rather than a better but multi-gigabyte one. Larger models give noticeably better answers; switch at any time with **Brynvok AI: Select Chat Model**."
+					"default": "qwen2.5-coder:7b",
+					"markdownDescription": "Model used for chat and workspace tools. Must be pulled on the Ollama server beforehand. Models below about 7B often fill tool arguments incorrectly; switch at any time with **Brynvok AI: Select Chat Model**."
 				},
 				"brynvok.ai.chat.temperature": {
 					"type": "number",
@@ -135,15 +135,22 @@
 				},
 				"brynvok.ai.chat.systemPrompt": {
 					"type": "string",
-					"default": "You are a concise programming assistant. Prefer short, correct answers and complete code over explanation.",
+					"default": "You are a concise programming assistant for the open workspace. Prefer short, correct answers and complete code over explanation.",
 					"editPresentation": "multilineText",
-					"description": "System prompt prepended to every chat session."
+					"description": "System prompt prepended to every chat session. Tool-use instructions are added automatically."
 				},
 				"brynvok.ai.chat.historyLimit": {
 					"type": "number",
-					"default": 20,
+					"default": 40,
 					"minimum": 2,
-					"description": "Number of past messages sent as context. Older messages are dropped to bound the prompt size."
+					"description": "Number of past messages sent as context, including tool results. Older messages are dropped to bound the prompt size."
+				},
+				"brynvok.ai.chat.maxToolRounds": {
+					"type": "number",
+					"default": 8,
+					"minimum": 1,
+					"maximum": 32,
+					"description": "Maximum model/tool rounds for one user question before the agent stops and asks you to continue."
 				},
 				"brynvok.ai.completion.enabled": {
 					"type": "boolean",

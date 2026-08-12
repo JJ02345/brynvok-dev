@@ -7,6 +7,7 @@ export interface ChatConfig {
 	temperature: number;
 	systemPrompt: string;
 	historyLimit: number;
+	maxToolRounds: number;
 }
 
 export interface CompletionConfig {
@@ -37,7 +38,8 @@ export function readConfig(scope?: vscode.ConfigurationScope): BrynvokConfig {
 			model: config.get<string>('chat.model', 'qwen2.5-coder:7b'),
 			temperature: config.get<number>('chat.temperature', 0.2),
 			systemPrompt: config.get<string>('chat.systemPrompt', ''),
-			historyLimit: config.get<number>('chat.historyLimit', 20),
+			historyLimit: config.get<number>('chat.historyLimit', 40),
+			maxToolRounds: config.get<number>('chat.maxToolRounds', 8),
 		},
 		completion: {
 			enabled: config.get<boolean>('completion.enabled', true),

@@ -7,6 +7,10 @@ export class ChatSession {
 		this.messages.push({ role, content });
 	}
 
+	appendMessage(message: ChatMessage): void {
+		this.messages.push(message);
+	}
+
 	clear(): void {
 		this.messages = [];
 	}

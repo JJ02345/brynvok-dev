@@ -1,0 +1,45 @@
+{
+	"name": "brynvok-theme",
+	"displayName": "Brynvok Theme",
+	"description": "Default graphite dark theme and Cursor-inspired layout defaults for Brynvok Dev.",
+	"version": "0.1.0",
+	"publisher": "brynvok",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.125.0"
+	},
+	"categories": [
+		"Themes"
+	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		},
+		"virtualWorkspaces": true
+	},
+	"contributes": {
+		"themes": [
+			{
+				"label": "Brynvok Dark",
+				"uiTheme": "vs-dark",
+				"path": "./themes/brynvok-dark-color-theme.json"
+			}
+		],
+		"configurationDefaults": {
+			"workbench.colorTheme": "Brynvok Dark",
+			"workbench.preferredDarkColorTheme": "Brynvok Dark",
+			"workbench.sideBar.location": "left",
+			"workbench.activityBar.location": "default",
+			"workbench.secondarySideBar.defaultVisibility": "visible",
+			"workbench.editor.showTabs": "multiple",
+			"workbench.editor.tabActionLocation": "right",
+			"editor.cursorSmoothCaretAnimation": "on",
+			"editor.cursorBlinking": "smooth",
+			"editor.smoothScrolling": true,
+			"workbench.list.smoothScrolling": true,
+			"terminal.integrated.smoothScrolling": true,
+			"editor.fontLigatures": true,
+			"window.titleBarStyle": "custom"
+		}
+	}
+}

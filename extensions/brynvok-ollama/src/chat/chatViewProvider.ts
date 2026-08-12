@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import { updateSetting, type BrynvokConfig } from '../config';
 import type { OllamaClient } from '../ollama/client';
 import { describeError } from '../ollama/errors';
+import { applyEditProposal, runCommandProposal } from '../tools/proposals';
+import { ToolRegistry } from '../tools/registry';
+import { runAgentTurn } from './agent';
 import type { HostToWebview, WebviewToHost } from './protocol';
 import { ChatSession } from './session';
 
@@ -10,6 +13,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
 	private view?: vscode.WebviewView;
 	private readonly session = new ChatSession();
+	private readonly registry = new ToolRegistry();
 	private inFlight?: AbortController;
 
 	constructor(
@@ -71,33 +75,24 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		const controller = new AbortController();
 		this.inFlight = controller;
 		this.postState(true);
-		this.post({ type: 'start' });
-
-		const config = this.getConfig();
-		let answer = '';
 
 		try {
-			const stream = this.client.streamChat(
-				{
-					model: config.chat.model,
-					messages: this.session.toRequestMessages(
-						config.chat.systemPrompt,
-						config.chat.historyLimit,
-					),
-					options: { temperature: config.chat.temperature },
+			await runAgentTurn({
+				client: this.client,
+				session: this.session,
+				registry: this.registry,
+				config: this.getConfig(),
+				signal: controller.signal,
+				log: (line) => this.log.info(line),
+				events: {
+					onAssistantStart: () => this.post({ type: 'start' }),
+					onAssistantText: (delta) => this.post({ type: 'delta', text: delta }),
+					onAssistantDone: () => this.post({ type: 'done' }),
+					onToolCard: (card) => this.post({ type: 'toolCard', card }),
+					onStatus: (status) => this.post({ type: 'status', text: status }),
 				},
-				controller.signal,
-			);
-
-			for await (const delta of stream) {
-				answer += delta;
-				this.post({ type: 'delta', text: delta });
-			}
-
-			this.session.append('assistant', answer);
-			this.post({ type: 'done' });
+			});
 		} catch (error) {
-			// A replaced question is not a failure worth reporting.
 			if (!controller.signal.aborted) {
 				const message = describeError(error);
 				this.log.error(`Chat request failed: ${message}`);
@@ -109,6 +104,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 			if (this.inFlight === controller) {
 				this.inFlight = undefined;
 				this.postState(false);
+				this.post({ type: 'status', text: '' });
 			}
 		}
 	}
@@ -154,7 +150,95 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 			case 'pickModel':
 				await this.pickModel('chat.model');
 				break;
+			case 'applyProposal':
+				await this.applyProposal(message.id);
+				break;
+			case 'runProposal':
+				await this.runProposal(message.id);
+				break;
+			case 'dismissProposal':
+				this.dismissProposal(message.id);
+				break;
 		}
+	}
+
+	private async applyProposal(id: string): Promise<void> {
+		const proposal = this.registry.proposals.get(id);
+
+		if (!proposal || proposal.kind !== 'edit') {
+			this.post({ type: 'proposalStatus', id, status: 'error', message: 'Proposal not found.' });
+			return;
+		}
+
+		if (proposal.status !== 'pending') {
+			this.post({ type: 'proposalStatus', id, status: proposal.status === 'applied' ? 'applied' : 'dismissed' });
+			return;
+		}
+
+		try {
+			await applyEditProposal(proposal);
+			this.registry.proposals.mark(id, 'applied');
+			this.session.append(
+				'user',
+				`[system] The user applied the edit to ${proposal.path}.`,
+			);
+			this.post({ type: 'proposalStatus', id, status: 'applied' });
+		} catch (error) {
+			this.post({
+				type: 'proposalStatus',
+				id,
+				status: 'error',
+				message: describeError(error),
+			});
+		}
+	}
+
+	private async runProposal(id: string): Promise<void> {
+		const proposal = this.registry.proposals.get(id);
+
+		if (!proposal || proposal.kind !== 'command') {
+			this.post({ type: 'proposalStatus', id, status: 'error', message: 'Proposal not found.' });
+			return;
+		}
+
+		if (proposal.status !== 'pending') {
+			this.post({ type: 'proposalStatus', id, status: proposal.status === 'ran' ? 'ran' : 'dismissed' });
+			return;
+		}
+
+		try {
+			await runCommandProposal(proposal);
+			this.registry.proposals.mark(id, 'ran');
+			this.session.append(
+				'user',
+				`[system] The user ran this command in the integrated terminal:\n${proposal.command}`,
+			);
+			this.post({ type: 'proposalStatus', id, status: 'ran' });
+		} catch (error) {
+			this.post({
+				type: 'proposalStatus',
+				id,
+				status: 'error',
+				message: describeError(error),
+			});
+		}
+	}
+
+	private dismissProposal(id: string): void {
+		const proposal = this.registry.proposals.get(id);
+
+		if (!proposal || proposal.status !== 'pending') {
+			return;
+		}
+
+		this.registry.proposals.mark(id, 'dismissed');
+		this.session.append(
+			'user',
+			proposal.kind === 'edit'
+				? `[system] The user dismissed the edit to ${proposal.path}.`
+				: `[system] The user dismissed the command: ${proposal.command}`,
+		);
+		this.post({ type: 'proposalStatus', id, status: 'dismissed' });
 	}
 
 	private postState(busy = this.inFlight !== undefined): void {
@@ -181,12 +265,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
 	<div id="log" class="log" role="log" aria-live="polite"></div>
+	<div id="status" class="status" hidden></div>
 	<div class="composer">
 		<label class="context">
 			<input type="checkbox" id="include-selection" checked>
 			Include editor selection
 		</label>
-		<textarea id="prompt" rows="3" placeholder="Ask about your code. Enter sends, Shift+Enter adds a line."></textarea>
+		<textarea id="prompt" rows="3" placeholder="Ask about your project. Tools can read files, propose edits and suggest terminal commands."></textarea>
 		<div class="actions">
 			<button id="model" class="link" type="button" title="Change model"></button>
 			<span class="spacer"></span>

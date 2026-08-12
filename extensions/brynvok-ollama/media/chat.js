@@ -4,6 +4,7 @@
 	const vscode = acquireVsCodeApi();
 
 	const log = document.getElementById('log');
+	const statusEl = document.getElementById('status');
 	const promptBox = document.getElementById('prompt');
 	const sendButton = document.getElementById('send');
 	const stopButton = document.getElementById('stop');
@@ -12,6 +13,7 @@
 
 	/** Raw text and target element of the reply currently streaming in. */
 	let pending = null;
+	const cards = new Map();
 
 	function addMessage(role) {
 		const element = document.createElement('div');
@@ -94,6 +96,164 @@
 		promptBox.disabled = busy;
 	}
 
+	function setStatus(text) {
+		if (!text) {
+			statusEl.hidden = true;
+			statusEl.textContent = '';
+			return;
+		}
+
+		statusEl.hidden = false;
+		statusEl.textContent = text;
+	}
+
+	function renderToolCard(card) {
+		const element = document.createElement('div');
+		element.className = 'tool-card';
+
+		if (card.kind === 'info') {
+			element.classList.add('info');
+			const title = document.createElement('div');
+			title.className = 'tool-title';
+			title.textContent = card.title;
+			const body = document.createElement('pre');
+			body.className = 'tool-body';
+			body.textContent = card.body;
+			element.appendChild(title);
+			element.appendChild(body);
+			log.appendChild(element);
+			scrollToEnd();
+			return;
+		}
+
+		if (card.kind === 'edit') {
+			element.classList.add('edit');
+			element.dataset.proposalId = card.proposalId;
+
+			const title = document.createElement('div');
+			title.className = 'tool-title';
+			title.textContent = (card.isNew ? 'New file: ' : 'Edit: ') + card.path;
+
+			const summary = document.createElement('div');
+			summary.className = 'tool-summary';
+			summary.textContent = card.summary;
+
+			const diff = document.createElement('pre');
+			diff.className = 'tool-diff';
+			diff.textContent = card.diff;
+
+			const actions = document.createElement('div');
+			actions.className = 'tool-actions';
+
+			const apply = document.createElement('button');
+			apply.type = 'button';
+			apply.textContent = 'Apply';
+			apply.addEventListener('click', function () {
+				vscode.postMessage({ type: 'applyProposal', id: card.proposalId });
+			});
+
+			const dismiss = document.createElement('button');
+			dismiss.type = 'button';
+			dismiss.className = 'secondary';
+			dismiss.textContent = 'Dismiss';
+			dismiss.addEventListener('click', function () {
+				vscode.postMessage({ type: 'dismissProposal', id: card.proposalId });
+			});
+
+			actions.appendChild(apply);
+			actions.appendChild(dismiss);
+			element.appendChild(title);
+			element.appendChild(summary);
+			element.appendChild(diff);
+			element.appendChild(actions);
+			log.appendChild(element);
+			cards.set(card.proposalId, { element: element, apply: apply, dismiss: dismiss });
+			scrollToEnd();
+			return;
+		}
+
+		if (card.kind === 'command') {
+			element.classList.add('command');
+			element.dataset.proposalId = card.proposalId;
+
+			const title = document.createElement('div');
+			title.className = 'tool-title';
+			title.textContent = 'Terminal command';
+
+			const cwd = document.createElement('div');
+			cwd.className = 'tool-summary';
+			cwd.textContent = 'cwd: ' + card.cwd;
+
+			const command = document.createElement('pre');
+			command.className = 'tool-command';
+			command.textContent = card.command;
+
+			const actions = document.createElement('div');
+			actions.className = 'tool-actions';
+
+			const run = document.createElement('button');
+			run.type = 'button';
+			run.textContent = 'Run';
+			run.addEventListener('click', function () {
+				vscode.postMessage({ type: 'runProposal', id: card.proposalId });
+			});
+
+			const dismiss = document.createElement('button');
+			dismiss.type = 'button';
+			dismiss.className = 'secondary';
+			dismiss.textContent = 'Dismiss';
+			dismiss.addEventListener('click', function () {
+				vscode.postMessage({ type: 'dismissProposal', id: card.proposalId });
+			});
+
+			actions.appendChild(run);
+			actions.appendChild(dismiss);
+			element.appendChild(title);
+			element.appendChild(cwd);
+			element.appendChild(command);
+			element.appendChild(actions);
+			log.appendChild(element);
+			cards.set(card.proposalId, { element: element, apply: run, dismiss: dismiss });
+			scrollToEnd();
+		}
+	}
+
+	function updateProposalStatus(id, status, message) {
+		const card = cards.get(id);
+
+		if (!card) {
+			return;
+		}
+
+		card.element.classList.add('resolved');
+		card.element.classList.add('status-' + status);
+
+		if (card.apply) {
+			card.apply.disabled = true;
+			if (status === 'applied') {
+				card.apply.textContent = 'Applied';
+			} else if (status === 'ran') {
+				card.apply.textContent = 'Ran';
+			} else if (status === 'dismissed') {
+				card.apply.textContent = 'Dismissed';
+			} else if (status === 'error') {
+				card.apply.textContent = 'Failed';
+			}
+		}
+
+		if (card.dismiss) {
+			card.dismiss.disabled = true;
+			card.dismiss.hidden = status !== 'pending';
+		}
+
+		if (message) {
+			const note = document.createElement('div');
+			note.className = 'tool-error';
+			note.textContent = message;
+			card.element.appendChild(note);
+		}
+	}
+
 	function submit() {
 		const text = promptBox.value.trim();
 
@@ -158,6 +318,20 @@
 			case 'cleared':
 				log.textContent = '';
 				pending = null;
+				cards.clear();
+				setStatus('');
+				break;
+
+			case 'status':
+				setStatus(message.text || '');
+				break;
+
+			case 'toolCard':
+				renderToolCard(message.card);
+				break;
+
+			case 'proposalStatus':
+				updateProposalStatus(message.id, message.status, message.message);
 				break;
 		}
 	});
